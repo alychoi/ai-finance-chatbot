@@ -4,7 +4,7 @@ As part of the Break Through Tech AI program @ Cornell Tech, we are building an 
 
 ## Demo App
 
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://app-starter-kit.streamlit.app/)
+[![Streamlit App]([https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://app-starter-kit.streamlit.app/](https://ai-finance-chatbot-dbzw9dwdjwcmolmauryqpn.streamlit.app/))
 
 ## GitHub Codespaces
 
