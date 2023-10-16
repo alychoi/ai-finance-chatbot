@@ -1,53 +1,60 @@
 import streamlit as st
 from hugchat import hugchat
-from hugchat.login import Login
+from transformers import pipeline
+from pypdf import PdfReader
+import io
 
-st.set_page_config(page_title="AI Chatbot👾")
+st.set_page_config(page_title="AI Finance Chatbot👾")
+st.header('AI Finance Chatbot👾')
 
-with st.sidebar:
-    st.title('AI Chatbot👾')
-    if ('EMAIL' in st.secrets) and ('PASS' in st.secrets):
-        st.success('HuggingFace Login credentials already provided!', icon='✅')
-        hf_email = st.secrets.db_credentials.username
-        hf_pass = st.secrets.db_credentials.password
-    else:
-        hf_email = st.text_input('Enter E-mail:', type='password')
-        hf_pass = st.text_input('Enter password:', type='password')
-        if not (hf_email and hf_pass):
-            st.warning('Please enter your credentials!', icon='⚠️')
-        else:
-            st.success('Proceed to entering your prompt message!', icon='👉')
-    st.markdown('📖 Learn how to build this app in this [blog](https://blog.streamlit.io/how-to-build-an-llm-powered-chatbot-with-streamlit/)!') 
+uploaded_file = st.file_uploader('Choose your .pdf file', type="pdf")
+if uploaded_file is not None:
+    file_contents = uploaded_file.read()
+    remote_file_bytes = io.BytesIO(file_contents)
+    pdfdoc_remote = PdfReader(remote_file_bytes)
 
-# Store LLM generated responses
+    pdf_text = ""
+
+    for i in range(len(pdfdoc_remote.pages)):
+        print(i)
+        page = pdfdoc_remote.pages[i]
+        page_content = page.extract_text()
+        pdf_text += page_content
+
+    print(pdf_text)
+
+    nlp = pipeline(
+        "question-answering",
+        model="deepset/roberta-base-squad2",
+        tokenizer="deepset/roberta-base-squad2",
+    )
+
 if "messages" not in st.session_state.keys():
-    st.session_state.messages = [{"role": "assistant", "content": "How may I help you?"}]
+    st.session_state.messages = [
+        {"role": "assistant", "content": "Ask me a question about the document!"}
+    ]
 
-# Display chat messages
-for message in st.session_state.messages:
+@st.cache_resource(show_spinner=False)
+def generate_answer(prompt, pdf_text):
+    context = pdf_text
+    question = prompt
+    question_set = {"context": context, "question": question}
+    results = nlp(question_set)
+    print("\nAnswer: " + results["answer"])
+    return results["answer"]
+
+if prompt := st.chat_input("Your question"): # Prompt for user input and save to chat history
+    st.session_state.messages.append({"role": "user", "content": prompt})
+
+for message in st.session_state.messages: # Display the prior chat messages
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-# Function for generating LLM response
-def generate_response(prompt_input, email, passwd):
-    # Hugging Face Login
-    sign = Login(email, passwd)
-    cookies = sign.login()
-    # Create ChatBot                        
-    chatbot = hugchat.ChatBot(cookies=cookies.get_dict())
-    return chatbot.chat(prompt_input)
-
-# User-provided prompt
-if prompt := st.chat_input(disabled=not (hf_email and hf_pass)):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.write(prompt)
-
-# Generate a new response if last message is not from assistant
 if st.session_state.messages[-1]["role"] != "assistant":
     with st.chat_message("assistant"):
         with st.spinner("Thinking..."):
-            response = generate_response(prompt, hf_email, hf_pass) 
-            st.write(response) 
-    message = {"role": "assistant", "content": response}
-    st.session_state.messages.append(message)
+            response = generate_answer(prompt, pdf_text)
+            st.write(response)
+            message = {"role": "assistant", "content": response}
+            st.session_state.messages.append(message) # Add response to message history
+
